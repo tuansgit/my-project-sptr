@@ -1,4 +1,4 @@
-﻿//=====================================================================||
+//=====================================================================||
 //               NOP Design JavaScript Shopping Cart                   ||
 //                                                                     ||
 // For more information on SmartSystems, or how NOPDesign can help you ||
@@ -641,7 +641,7 @@ function ManageCart( ) {
 
       if ( DisplayShippingRow ) {
          strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=4><B>"+strSHIP+"</B></TD>";
-         strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>" + MonetarySymbol + strShipping + "</B></TD>";
+         strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>" + strShipping + MonetarySymbol + "</B></TD>";
          strOutput += "</TR>";
       }
 
@@ -650,14 +650,14 @@ function ManageCart( ) {
             strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=4><B>"+strTAX+"</B></TD>";
             strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>";
             strOutput += "<input type=radio name=\""+OutputOrderTax+"\" value=\"" + strTax + "\">";
-            strOutput += TaxablePrompt + ": " + MonetarySymbol + strTax;
+            strOutput += TaxablePrompt + ": " + strTax + MonetarySymbol;
             strOutput += "<BR><input type=radio name=\""+OutputOrderTax+"\" value=\"0.00\">";
-            strOutput += NonTaxablePrompt + ": " + MonetarySymbol + "0.00";
+            strOutput += NonTaxablePrompt + ": " + "0.00" + MonetarySymbol;
             strOutput += "</B></TD>";
             strOutput += "</TR>";
          } else {
             strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=4><B>"+strTAX+"</B></TD>";
-            strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>" + MonetarySymbol + strTax + "</B></TD>";
+            strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>" + strTax + MonetarySymbol + "</B></TD>";
             strOutput += "</TR>";
          }
       }
@@ -670,9 +670,9 @@ function ManageCart( ) {
       strOutput += "</TABLE>";
 
       if ( HiddenFieldsToCheckout ) {
-         strOutput += "<input type=hidden name=\""+OutputOrderSubtotal+"\" value=\""+ MonetarySymbol + strTotal + "\">";
-         strOutput += "<input type=hidden name=\""+OutputOrderShipping+"\" value=\""+ MonetarySymbol + strShipping + "\">";
-         strOutput += "<input type=hidden name=\""+OutputOrderTax+"\"      value=\""+ MonetarySymbol + strTax + "\">";
+         strOutput += "<input type=hidden name=\""+OutputOrderSubtotal+"\" value=\""+ strTotal + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\""+OutputOrderShipping+"\" value=\""+ strShipping + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\""+OutputOrderTax+"\"      value=\""+ strTax + MonetarySymbol + "\">";
          strOutput += "<input type=hidden name=\""+OutputOrderTotal+"\"    value=\""+ moneyFormat((fTotal + fShipping + fTax)) + MonetarySymbol + "\">";
       }
    }
@@ -780,11 +780,11 @@ function CheckoutCart( ) {
             strOutput += "<TD CLASS=\"nopentry\">"  + fields[3] + " - <I>"+ fields[5] + "</I></TD>";
 
          strOutput += "<TD CLASS=\"nopentry\">" + fields[1] + "</TD>";
-         strOutput += "<TD CLASS=\"nopentry\">"+ MonetarySymbol + moneyFormat(fields[2]) + "/ea</TD>";
+         strOutput += "<TD CLASS=\"nopentry\">"+ moneyFormat(fields[2]) + MonetarySymbol + "/sp</TD>";
 
          if ( DisplayShippingColumn ) {
             if ( parseFloat(fields[4]) > 0 )
-               strOutput += "<TD CLASS=\"nopentry\">"+ MonetarySymbol + moneyFormat(fields[4]) + "/ea</TD>";
+               strOutput += "<TD CLASS=\"nopentry\">"+ moneyFormat(fields[4]) + MonetarySymbol + "/sp</TD>";
             else
                strOutput += "<TD CLASS=\"nopentry\">N/A</TD>";
          }
@@ -818,23 +818,23 @@ function CheckoutCart( ) {
 
    if ( bDisplay ) {
       strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=3><B>"+strSUB+"</B></TD>";
-      strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + MonetarySymbol + strTotal + "</B></TD>";
+      strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + strTotal + MonetarySymbol + "</B></TD>";
       strOutput += "</TR>";
 
       if ( DisplayShippingRow ) {
          strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=3><B>"+strSHIP+"</B></TD>";
-         strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + MonetarySymbol + strShipping + "</B></TD>";
+         strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + strShipping + MonetarySymbol + "</B></TD>";
          strOutput += "</TR>";
       }
 
       if ( DisplayTaxRow || TaxByRegion ) {
          strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=3><B>"+strTAX+"</B></TD>";
-         strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + MonetarySymbol + strTax + "</B></TD>";
+         strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + strTax + MonetarySymbol + "</B></TD>";
          strOutput += "</TR>";
       }
 
       strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=3><B>"+strTOT+"</B></TD>";
-      strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + MonetarySymbol + moneyFormat((fTotal + fShipping + fTax)) + "</B></TD>";
+      strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + moneyFormat((fTotal + fShipping + fTax)) + MonetarySymbol + "</B></TD>";
       strOutput += "</TR>";
 
       strOutput += "</TABLE>";
@@ -854,15 +854,15 @@ function CheckoutCart( ) {
          //Process this for LinkPoint         
          strOutput += "<input type=hidden name=\"mode\" value=\"fullpay\">";
          strOutput += "<input type=hidden name=\"chargetotal\" value=\""+ moneyFormat((fTotal + fShipping + fTax)) + "\">";
-         strOutput += "<input type=hidden name=\"tax\" value=\""+ MonetarySymbol + strTax + "\">";
-         strOutput += "<input type=hidden name=\"subtotal\" value=\""+ MonetarySymbol + strTotal + "\">";
-         strOutput += "<input type=hidden name=\"shipping\" value=\""+ MonetarySymbol + strShipping + "\">";
+         strOutput += "<input type=hidden name=\"tax\" value=\""+ strTax + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\"subtotal\" value=\""+ strTotal + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\"shipping\" value=\""+ strShipping + MonetarySymbol + "\">";
          strOutput += "<input type=hidden name=\"desc\" value=\""+ strPP + "\">";
       } else {
-         strOutput += "<input type=hidden name=\""+OutputOrderSubtotal+"\" value=\""+ MonetarySymbol + strTotal + "\">";
-         strOutput += "<input type=hidden name=\""+OutputOrderShipping+"\" value=\""+ MonetarySymbol + strShipping + "\">";
-         strOutput += "<input type=hidden name=\""+OutputOrderTax+"\"      value=\""+ MonetarySymbol + strTax + "\">";
-         strOutput += "<input type=hidden name=\""+OutputOrderTotal+"\"    value=\""+ MonetarySymbol + moneyFormat((fTotal + fShipping + fTax)) + "\">";
+         strOutput += "<input type=hidden name=\""+OutputOrderSubtotal+"\" value=\""+ strTotal + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\""+OutputOrderShipping+"\" value=\""+ strShipping + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\""+OutputOrderTax+"\"      value=\""+ strTax + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\""+OutputOrderTotal+"\"    value=\""+ moneyFormat((fTotal + fShipping + fTax)) + MonetarySymbol + "\">";
       }
    }
 
@@ -873,4 +873,5 @@ function CheckoutCart( ) {
 //=====================================================================||
 //               END NOP Design SmartPost Shopping Cart                ||
 //=====================================================================||
+
 
