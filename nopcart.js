@@ -635,7 +635,6 @@ function ManageCart( ) {
    }
 
    if ( bDisplay ) {
-      strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=4><B>"+strSUB+"</B></TD>";
       strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>" + strTotal + MonetarySymbol + "</B></TD>";
       strOutput += "</TR>";
 
@@ -817,8 +816,7 @@ function CheckoutCart( ) {
    }
 
    if ( bDisplay ) {
-      strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=3><B>"+strSUB+"</B></TD>";
-      strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + strTotal + MonetarySymbol + "</B></TD>";
+      strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=LEFT><B>" + strTotal + MonetarySymbol + "</B></TD>";
       strOutput += "</TR>";
 
       if ( DisplayShippingRow ) {
@@ -873,5 +871,4 @@ function CheckoutCart( ) {
 //=====================================================================||
 //               END NOP Design SmartPost Shopping Cart                ||
 //=====================================================================||
-
 
