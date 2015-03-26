@@ -635,8 +635,6 @@ function ManageCart( ) {
    }
 
    if ( bDisplay ) {
-      strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=2><B>" + strTotal + MonetarySymbol + "</B></TD>";
-      strOutput += "</TR>";
 
       if ( DisplayShippingRow ) {
          strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=4><B>"+strSHIP+"</B></TD>";
@@ -816,6 +814,9 @@ function CheckoutCart( ) {
    }
 
    if ( bDisplay ) {
+      strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=LEFT><B>" + strTotal + MonetarySymbol + "</B></TD>";
+      strOutput += "</TR>";
+
       if ( DisplayShippingRow ) {
          strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=3><B>"+strSHIP+"</B></TD>";
          strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + strShipping + MonetarySymbol + "</B></TD>";
