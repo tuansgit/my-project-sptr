@@ -1,1294 +1,874 @@
-﻿/****************************************************************************
-Copyright (c) 2011 The Wojo Group
-
-thewojogroup.com
-simplecartjs.com
-http://github.com/thewojogroup/simplecart-js/tree/master
-
-The MIT License
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-****************************************************************************/
-
-var Custom="Custom",GoogleCheckout="GoogleCheckout",PayPal="PayPal",Email="Email",AustralianDollar="AUD",AUD="AUD",CanadianDollar="CAD",CAD="CAD",CzechKoruna="CZK",CZK="CZK",DanishKrone="DKK",DKK="DKK",Euro="EUR",EUR="EUR",HongKongDollar="HKD",HKD="HKD",HungarianForint="HUF",HUF="HUF",IsraeliNewSheqel="ILS",ILS="ILS",JapaneseYen="JPY",JPY="JPY",MexicanPeso="MXN",MXN="MXN",NorwegianKrone="NOK",NOK="NOK",NewZealandDollar="NZD",NZD="NZD",PolishZloty="PLN",PLN="PLN",PoundSterling="GBP",GBP="GBP",SingaporeDollar="SGD",SGD="SGD",SwedishKrona="SEK",SEK="SEK",SwissFranc="CHF",CHF="CHF",ThaiBaht="THB",THB="THB",USDollar="USD",USD="USD",VND="VND";
-function Cart(){
-
-	var me = this;
-	/* member variables */
-	me.nextId = 1;
-	me.Version = '2.2';
-	me.Shelf = null;
-	me.items = {};
-	me.isLoaded = false;
-	me.pageIsReady = false;
-	me.quantity = 0;
-	me.total = 0;
-	me.taxRate = 0;
-	me.taxCost = 0;
-	me.shippingFlatRate = 0;
-	me.shippingTotalRate = 0;
-	me.shippingQuantityRate = 0;
-	me.shippingRate = 0;
-	me.shippingCost = 0;
-	me.currency = USD;
-	me.checkoutTo = PayPal;
-	me.email = "";
-	me.merchantId	 = "";
-	me.successUrl = null;
-	me.cancelUrl = null;
-	me.cookieDuration = 30; // default duration in days
-	me.storagePrefix = "sc_";
-	me.MAX_COOKIE_SIZE = 4000;
-	me.cartHeaders = ['Tên hàng','Giá','Số lượng','Tổng cộng'];
-	/*
-		cart headers:
-		you can set these to which ever order you would like, and the cart will display the appropriate headers
-		and item info.	any field you have for the items in the cart can be used, and 'Total' will automatically
-		be price*quantity.
-
-		there are keywords that can be used:
-
-			1) "_input" - the field will be a text input with the value set to the given field. when the user
-				changes the value, it will update the cart.	 this can be useful for quantity. (ie "Quantity_input")
-
-			2) "increment" - a link with "+" that will increase the item quantity by 1
-
-			3) "decrement" - a link with "-" that will decrease the item quantity by 1
-
-			4) "remove" - a link that will remove the item from the cart
-
-			5) "_image" or "Image" - the field will be an img tag with the src set to the value. You can simply use "Image" if
-				you set a field in the items called "Image".  If you have a field named something else, like "Thumb", you can add
-				the "_image" to create the image tag (ie "Thumb_image").
-
-			6) "_noHeader" - this will skip the header for that field (ie "increment_noHeader")
-
-
-	*/
-
-
-
-
-	/******************************************************
-			add/remove items to cart
-	 ******************************************************/
-
-	me.add = function ( values ) {
-		var me=this;
-		/* load cart values if not already loaded */
-		if( !me.pageIsReady		) {
-			me.initializeView();
-			me.update();
-		}
-		if( !me.isLoaded		) {
-			me.load();
-			me.update();
-		}
-
-		var newItem = new CartItem();
-
-		/* check to ensure arguments have been passed in */
-		if( !arguments || arguments.length === 0 ){
-			error( 'No values passed for item.');
-			return null;
-		}
-		var argumentArray = arguments;
-		if( values && typeof( values ) !== 'string' && typeof( values ) !== 'number'  ){
-			argumentArray = values;
-		}
-
-		newItem.parseValuesFromArray( argumentArray );
-		newItem.checkQuantityAndPrice();
-
-		/* if the item already exists, update the quantity */
-		if( me.hasItem(newItem) ) {
-			var foundItem=me.hasItem(newItem);
-			foundItem.quantity= parseInt(foundItem.quantity,10) + parseInt(newItem.quantity,10);
-			newItem = foundItem;
-		} else {
-			me.items[newItem.id] = newItem;
-		}
-
-		me.update();
-		return newItem;
-		
-	};
-
-
-	me.remove = function( id ){
-		var tempArray = {};
-			
-		me.each(function(item){
-			if( item.id !== id ){
-				tempArray[item.id] = item;
-			}
-		});
-		this.items = tempArray;
-	};
-
-	me.empty = function () {
-		simpleCart.items = {};
-		simpleCart.update();
-	};
-
-	/******************************************************
-			 item accessor functions
-	 ******************************************************/
-
-	me.find = function (criteria) {
-		if( !criteria ){
-			return null;
-		}
-		
-		var results = [];
-			
-		me.each(function(item,x,next){ 	
-	
-			fits = true;
-		
-			me.each( criteria , function(value,j,name){
-				if( !item[name] || item[name] != value ){
-					fits = false;
-				}
-			});
-			
-			if( fits ){
-				results.push( item );
-			}
-		});
-		return (results.length === 0 ) ? null : results;
-	};
-	
-	
-	me.each = function( array , callback ){
-		var next,
-			x=0, 
-			result;
-
-		if( typeof array === 'function' ){
-			var cb = array
-				items = me.items;
-		} else if( typeof callback === 'function' ){
-			var cb = callback,
-				items = array;
-		} else {
-			return;
-		}
-		
-		for( next in items ){
-			if( typeof items[next] !== "function" ){
-				result = cb.call( me , items[next] , x , next );
-				if( result === false ){
-					return;
-				}
-				x++;
-			}
-		}
-		
-	};
-	
-	
-	me.chunk = function(str, n) {
-		if (typeof n==='undefined'){ 
-			n=2;
-		}
-		var result = str.match(RegExp('.{1,'+n+'}','g'));
-		return result || [];
-	};
-
-
-	/******************************************************
-			 checkout management
-	 ******************************************************/
-
-	me.checkout = function() {
-		if( simpleCart.quantity === 0 ){
-			error("Cart is empty");
-			return;
-		}
-		switch( simpleCart.checkoutTo ){
-			case PayPal:
-				simpleCart.paypalCheckout();
-				break;
-			case GoogleCheckout:
-				simpleCart.googleCheckout();
-				break;
-			case Email:
-				simpleCart.emailCheckout();
-				break;
-			default:
-				simpleCart.customCheckout();
-				break;
-		}
-	};
-
-	me.paypalCheckout = function() {
-
-		var me = this,
-			winpar = "scrollbars,location,resizable,status",
-			strn  = "https://www.paypal.com/cgi-bin/webscr?cmd=_cart" +
-					"&upload=1" +
-					"&business=" + me.email +
-					"&currency_code=" + me.currency,
-			counter = 1,
-			itemsString = "",
-			current,
-			item,
-			optionsString,
-			field;
-
-
-		if( me.taxRate ){
-			strn = strn +
-				"&tax_cart=" +	me.currencyStringForPaypalCheckout( me.taxCost );
-		}
-
-		me.each(function(item,iter){
-			
-			counter = iter+1;
-			optionsString = "";
-			
-			me.each( item , function( value, x , field ){
-				if( field !== "id" && field !== "price" && field !== "quantity" && field !== "name" && field !== "shipping") {
-					optionsString = optionsString + ", " + field + "=" + value ;
-				}
-			});
-			optionsString = optionsString.substring(2);
-
-			itemsString = itemsString	+ "&item_name_"		+ counter + "=" + item.name	 +
-										  "&item_number_"	+ counter + "=" + counter +
-										  "&quantity_"		+ counter + "=" + item.quantity +
-										  "&amount_"		+ counter + "=" + me.currencyStringForPaypalCheckout( item.price ) +
-										  "&on0_"			+ counter + "=" + "Options" +
-										  "&os0_"			+ counter + "=" + optionsString;
-		});
-
-		if( me.shipping() !== 0){
-			 itemsString = itemsString	+	"&shipping=" + me.currencyStringForPaypalCheckout( me.shippingCost );
-		}
-		
-		if( me.successUrl ){
-			itemsString = itemsString + "&return=" + me.successUrl;
-		}
-		
-		if( me.cancelUrl ){
-			itemsString = itemsString + "&cancel_return=" + me.cancelUrl;
-		}
-
-
-		strn = strn + itemsString ;
-		window.open (strn, "paypal", winpar);
-	};
-
-	me.googleCheckout = function() {
-		var me = this;
-		
-		
-		if( me.currency !== USD && me.currency !== GBP ){
-			error( "Google Checkout only allows the USD and GBP for currency.");
-			return;
-		} else if( me.merchantId === "" || me.merchantId === null || !me.merchantId ){
-			error( "No merchant Id for google checkout supplied.");
-			return;
-		}
-
-		var form = document.createElement("form"),
-			counter=1,
-			current,
-			item,
-			descriptionString;
-			
-		form.style.display = "none";
-		form.method = "POST";
-		form.action = "https://checkout.google.com/api/checkout/v2/checkoutForm/Merchant/" +
-						me.merchantId;
-		form.acceptCharset = "utf-8";
-
-		me.each(function(item,iter){
-				
-			counter = iter+1;
-		
-			form.appendChild( me.createHiddenElement( "item_name_"		+ counter, item.name		) );
-			form.appendChild( me.createHiddenElement( "item_quantity_"	+ counter, item.quantity	) );
-			form.appendChild( me.createHiddenElement( "item_price_"		+ counter, item.price		) );
-			form.appendChild( me.createHiddenElement( "item_currency_"	+ counter, me.currency		) );
-			form.appendChild( me.createHiddenElement( "item_tax_rate_"	+ counter, me.taxRate		) );
-			form.appendChild( me.createHiddenElement( "_charset_"				 , ""				) );
-
-			descriptionString = "";
-
-			me.each( item , function( value , x , field ){
-			
-				if( field !== "id"		&&
-					field !== "quantity" &&
-					field !== "price" ) {
-						
-						descriptionString = descriptionString + ", " + field + ": " + value;
-				}
-			});
-			
-			descriptionString = descriptionString.substring( 1 );
-			form.appendChild( me.createHiddenElement( "item_description_" + counter, descriptionString) );
-
-		});
-		
-		// hack for adding shipping
-		if( me.shipping() !== 0){
-		   form.appendChild(me.createHiddenElement("ship_method_name_1", "Shipping"));
-		   form.appendChild(me.createHiddenElement("ship_method_price_1", parseFloat(me.shippingCost).toFixed(2)));
-		   form.appendChild(me.createHiddenElement("ship_method_currency_1", me.currency));
-		}
-
-		document.body.appendChild( form );
-		form.submit();
-		document.body.removeChild( form );
-	};
-
-
-
-	me.emailCheckout = function() {
-		return;
-	};
-
-	me.customCheckout = function() {
-				var me = this,
-			winpar = "scrollbars,location,resizable,status",
-			strn  = "https://www.nganluong.vn/button_payment.php?receiver=" + me.email,
-			counter = 1,
-			itemsName = "",
-			itemsComment = "&comments=Thanh%20to%C3%A1n%20%C4%91%E1%BA%B7t%20h%C3%A0ng%20tr%E1%BB%B1c%20tuy%E1%BA%BFn",
-			itemsPrice = 0,
-			current,
-			item,
-			optionsString,
-			field;
-
-		me.each(function(item,iter){
-			if (itemsName == "") {
-				itemsName = "&product_name=" + item.name;
-			}
-			else {
-				itemsName = itemsName + ", " + item.name;
-			}
-			itemsPrice = itemsPrice + item.price*item.quantity;
-			if (item.quantity > 1) {
-					itemsName = itemsName + " x " + item.quantity;
-				}
-			
-		});
-		
-		
-		itemsPrice = "&price=" + itemsPrice;
-		if( me.successUrl ){
-			itemsName = itemsName + "&return_url=" + me.successUrl;
-		}
-
-		strn = strn + encodeURI(itemsName) + itemsPrice  + itemsComment;
-		window.open (strn, "Ngan Luong", winpar);
-		return;
-	};
-
-
-
-
-	/******************************************************
-				data storage and retrival
-	 ******************************************************/
-
-	/* load cart from cookie */
-	me.load = function () {
-		var me = this,
-			id;
-			
-		/* initialize variables and items array */
-		me.items = {};
-		me.total = 0.00;
-		me.quantity = 0;
-
-		/* retrieve item data from cookie */
-		if( readCookie(simpleCart.storagePrefix + 'simpleCart_' + "chunks") ){
-			var chunkCount = 1*readCookie(simpleCart.storagePrefix + 'simpleCart_' + "chunks"),
-				dataArray = [],
-				dataString = "",
-				data = "",
-				info,
-				newItem,
-				y=0;
-			if(chunkCount>0) {	
-				for( y=0;y<chunkCount;y++){
-					dataArray.push( readCookie( simpleCart.storagePrefix + 'simpleCart_' + (1 + y ) ) );
-				}
-			
-				dataString = unescape( dataArray.join("") );
-				data = dataString.split("++");
-			}
-			for(var x=0, xlen=data.length;x<xlen;x++){
-
-				info = data[x].split('||');
-				newItem = new CartItem();
-
-				if( newItem.parseValuesFromArray( info ) ){
-					newItem.checkQuantityAndPrice();
-					/* store the new item in the cart */
-					me.items[newItem.id] = newItem;
-				}
-			}
-		}
-	
-		me.isLoaded = true;
-	};
-
-
-
-	/* save cart to cookie */
-	me.save = function () {
-		var dataString = "",
-			dataArray = [],
-			chunkCount = 0;
-			
-		chunkCount = 1*readCookie(simpleCart.storagePrefix + 'simpleCart_' + "chunks");
-		for( var j=0;j<chunkCount;j++){
-			eraseCookie(simpleCart.storagePrefix + 'simpleCart_'+ j);
-		}
-		eraseCookie(simpleCart.storagePrefix + 'simpleCart_' + "chunks");
-		
-			
-		me.each(function(item){
-			dataString = dataString + "++" + item.print();
-		});
-		
-		dataArray = simpleCart.chunk( dataString.substring(2) , simpleCart.MAX_COOKIE_SIZE );
-		
-		for( var x=0,xlen = dataArray.length;x<xlen;x++){
-			createCookie(simpleCart.storagePrefix + 'simpleCart_' + (1 + x ), dataArray[x], me.cookieDuration );
-		}
-				
-		createCookie( simpleCart.storagePrefix + 'simpleCart_' + "chunks", "" + dataArray.length , me.cookieDuration );
-	};
-
-
-
-	/******************************************************
-				 view management
-	 ******************************************************/
-
-	me.initializeView = function() {
-		var me = this;
-		me.totalOutlets				= getElementsByClassName('simpleCart_total');
-		me.quantityOutlets			= getElementsByClassName('simpleCart_quantity');
-		me.cartDivs					= getElementsByClassName('simpleCart_items');
-		me.taxCostOutlets			= getElementsByClassName('simpleCart_taxCost');
-		me.taxRateOutlets			= getElementsByClassName('simpleCart_taxRate');
-		me.shippingCostOutlets		= getElementsByClassName('simpleCart_shippingCost');
-		me.finalTotalOutlets		= getElementsByClassName('simpleCart_finalTotal');
-
-		me.addEventToArray( getElementsByClassName('simpleCart_checkout') , simpleCart.checkout , "click");
-		me.addEventToArray( getElementsByClassName('simpleCart_empty')	, simpleCart.empty , "click" );
-		
-		me.Shelf = new Shelf();
-		me.Shelf.readPage();
-
-		me.pageIsReady = true;
-
-	};
-
-
-
-	me.updateView = function() {
-		me.updateViewTotals();
-		if( me.cartDivs && me.cartDivs.length > 0 ){
-			me.updateCartView();
-		}
-	};
-
-	me.updateViewTotals = function() {
-		var outlets = [ ["quantity"		, "none"		] ,
-						["total"		, "currency"	] ,
-						["shippingCost" , "currency"	] ,
-						["taxCost"		, "currency"	] ,
-						["taxRate"		, "percentage"	] ,
-						["finalTotal"	, "currency"	] ];
-
-		for( var x=0,xlen=outlets.length; x<xlen;x++){
-
-			var arrayName = outlets[x][0] + "Outlets",
-				outputString,
-				element;
-
-			for( var y = 0,ylen = me[ arrayName ].length; y<ylen; y++ ){ 
-				switch( outlets[x][1] ){
-					case "none":
-						outputString = "" + me[outlets[x][0]];
-						break;
-					case "currency":
-						outputString = me.valueToCurrencyString( me[outlets[x][0]] );
-						break;
-					case "percentage":
-						outputString = me.valueToPercentageString( me[outlets[x][0]] );
-						break;
-					default:
-						outputString = "" + me[outlets[x][0]];
-						break;
-				}
-				me[arrayName][y].innerHTML = "" + outputString;
-			}
-		}
-	};
-
-	me.updateCartView = function() {
-		var newRows = [],
-			y,newRow,current,header,newCell,info,outputValue,option,headerInfo;
-
-		/* create headers row */
-		newRow = document.createElement('div');
-		for(var y=0,ylen = me.cartHeaders.length; y<ylen; y++ ){
-			newCell = document.createElement('div');
-			headerInfo = me.cartHeaders[y].split("_");
-
-			newCell.innerHTML = me.print( headerInfo[0] );
-			newCell.className = "item" + headerInfo[0];
-			for(var z=1,zlen=headerInfo.length;z<zlen;z++){
-				if( headerInfo[z].toLowerCase() == "noheader" ){
-					newCell.style.display = "none";
-				}
-			}
-			newRow.appendChild( newCell );
-
-		}
-		newRow.className = "cartHeaders";
-		newRows[0] = newRow;
-
-		/* create a row for each item in the cart */
-		me.each(function(item, x){
-			newRow = document.createElement('div');
-
-			for(var y=0,ylen = me.cartHeaders.length; y<ylen; y++ ){
-				newCell = document.createElement('div');
-				info = me.cartHeaders[y].split("_");
-			
-				outputValue = me.createCartRow( info , item , outputValue );
-
-				newCell.innerHTML = outputValue;
-				newCell.className = "item" + info[0];
-			
-				newRow.appendChild( newCell );
-			}
-			newRow.className = "itemContainer";
-			newRows[x+1] = newRow;
-		});
-
-
-
-		for( var x=0,xlen=me.cartDivs.length; x<xlen; x++){
-
-			/* delete current rows in div */
-			var div = me.cartDivs[x];
-			if( div.childNodes && div.appendChild ){
-				while( div.childNodes[0] ){
-					div.removeChild( div.childNodes[0] );
-				}
-			
-
-				for(var j=0, jLen = newRows.length; j<jLen; j++){
-					div.appendChild( newRows[j] );
-				}
-			}
-
-		}
-	};
-	
-	me.createCartRow = function( info , item , outputValue ){
-				
-		switch( info[0].toLowerCase() ){
-			case "total":
-				outputValue = me.valueToCurrencyString(parseFloat(item.price)*parseInt(item.quantity,10) );
-				break;
-			case "increment":
-				outputValue = me.valueToLink( "+" , "javascript:;" , "onclick=\"simpleCart.items[\'" + item.id + "\'].increment();\"" );
-				break;
-			case "decrement":
-				outputValue = me.valueToLink( "-" , "javascript:;" , "onclick=\"simpleCart.items[\'" + item.id + "\'].decrement();\"" );
-				break;
-			case "remove":
-				outputValue = me.valueToLink( "Remove" , "javascript:;" , "onclick=\"simpleCart.items[\'" + item.id + "\'].remove();\"" );
-				break;
-			case "price":
-				outputValue = me.valueToCurrencyString( item[ info[0].toLowerCase() ] ? item[info[0].toLowerCase()] : " " );
-				break;
-			default: 
-				outputValue = item[ info[0].toLowerCase() ] ? item[info[0].toLowerCase()] : " ";
-				break;
-		}	
-		
-		for( var y=1,ylen=info.length;y<ylen;y++){
-			option = info[y].toLowerCase();
-			switch( option ){
-				case "image":
-				case "img":
-					outputValue = me.valueToImageString( outputValue );		
-					break;
-				case "input":
-					outputValue = me.valueToTextInput( outputValue , "onchange=\"simpleCart.items[\'" + item.id + "\'].set(\'" + info[0].toLowerCase() + "\' , this.value);\""	);
-					break;
-				case "div":
-				case "span":
-				case "h1":
-				case "h2":
-				case "h3":
-				case "h4":
-				case "p":
-					outputValue = me.valueToElement( option , outputValue , "" );
-					break;
-				case "noheader":
-					break;
-				default:
-					error( "unkown header option: " + option );
-					break;
-			}
-		
-		}		  
-		return outputValue;
-	};
-
-	me.addEventToArray = function ( array , functionCall , theEvent ) {
-		var outlet, 
-			element;
-		
-		for(var x=0,xlen=array.length; x<xlen; x++ ){
-			element = array[x];
-			if( element.addEventListener ) {
-				element.addEventListener(theEvent, functionCall , false );
-			} else if( element.attachEvent ) {
-				element.attachEvent( "on" + theEvent, functionCall );
-			}
-		}
-	};
-
-
-	me.createHiddenElement = function ( name , value ){
-		var element = document.createElement("input");
-		element.type = "hidden";
-		element.name = name;
-		element.value = value;
-		return element;
-	};
-
-
-
-	/******************************************************
-				Currency management
-	 ******************************************************/
-
-	me.currencySymbol = function() {
-		switch(me.currency){
-			case CHF:
-				return "CHF&nbsp;";
-			case CZK:
-				return "CZK&nbsp;";
-			case DKK:
-				return "DKK&nbsp;";
-			case HUF:
-				return "HUF&nbsp;";
-			case NOK:
-				return "NOK&nbsp;";
-			case PLN:
-				return "PLN&nbsp;";
-			case SEK:
-				return "SEK&nbsp;";
-			case JPY:
-				return "&yen;";
-			case EUR:
-				return "&euro;";
-			case GBP:
-				return "&pound;";
-			case CHF:
-				return "CHF&nbsp;";
-			case THB: 
-				return "&#3647;";
-			case USD:
-			case VND:
-				return "VNĐ&nbsp;";
-			case CAD:
-			case AUD:
-			case NZD:
-			case HKD:
-			case SGD:
-				return "&#36;";
-			default:
-				return "";
-		}
-	};
-
-
-	me.currencyStringForPaypalCheckout = function( value ){
-		if( me.currencySymbol() == "&#36;" ){
-			return "$" + parseFloat( value ).toFixed(2);
-		} else {
-			return "" + parseFloat(value ).toFixed(2);
-		}
-	};
-
-	/******************************************************
-				Formatting
-	 ******************************************************/
-
-
-	me.valueToCurrencyString = function( value ) {
-		var val =  parseFloat( value ); 
-		if( isNaN(val))
-			val = 0;
-
-		return val.toCurrency( me.currencySymbol() );
-	};
-
-	me.valueToPercentageString = function( value ){
-		return parseFloat( 100*value ) + "%";
-	};
-
-	me.valueToImageString = function( value ){
-		if( value.match(/<\s*img.*src\=/) ){
-			return value;
-		} else {
-			return "<img src=\"" + value + "\" />";
-		}
-	};
-
-	me.valueToTextInput = function( value , html ){
-		return "<input type=\"text\" value=\"" + value + "\" " + html + " />";
-	};
-
-	me.valueToLink = function( value, link, html){
-		return "<a href=\"" + link + "\" " + html + " >" + value + "</a>";
-	};
-
-	me.valueToElement = function( type , value , html ){
-		return "<" + type + " " + html + " > " + value + "</" + type + ">";
-	};
-
-	/******************************************************
-				Duplicate management
-	 ******************************************************/
-
-	me.hasItem = function ( item ) {
-		var current, 
-			matches,
-			field,
-			match=false;
-		
-		me.each(function(testItem){ 
-			
-			matches = true;
-			
-			me.each( item , function( value , x , field ){ 
-				
-				if( field !== "quantity" && field !== "id" && item[field] !== testItem[field] ){
-					matches = false;
-				}
-			});
-			
-			if( matches ){
-				match = testItem;
-			}
-			
-		});
-		return match;
-	};
-	
-	/******************************************************
-				Language managment
-	 ******************************************************/
-	me.ln = {
-		"en_us": {
-			  quantity: "Số lượng"
-			, price: "Giá"
-			, name: "Tên hàng"
-			, size: "Loại"
-			, total: "Tổng cộng"
-			, decrement: "Bớt"
-			, increment: "Thêm"
-			, remove: "Bỏ"
-			, tax: "Thuế"
-			, shipping: "Vận chuyển"
-			, image: "Ảnh"
-		} 
-	};
-	
-	me.language = "en_us"; 
-	
-	me.print = function( input ) {
-		var me = this;
-		return me.ln[me.language] && me.ln[me.language][input.toLowerCase()] ? me.ln[me.language][input.toLowerCase()] : input;
-		
-	};
-
-
-	/******************************************************
-				Cart Update managment
-	 ******************************************************/
-
-	me.update = function() {
-		if( !simpleCart.isLoaded ){
-			simpleCart.load();
-		}
-		if( !simpleCart.pageIsReady ){
-			simpleCart.initializeView();
-		}
-		me.updateTotals();
-		me.updateView();
-		me.save();
-	};
-
-	me.updateTotals = function() {
-			
-		me.total = 0 ;
-		me.quantity	 = 0;
-		me.each(function(item){ 
-			
-			if( item.quantity < 1 ){
-				item.remove();
-			} else if( item.quantity !== null && item.quantity !== "undefined" ){
-				me.quantity = parseInt(me.quantity,10) + parseInt(item.quantity,10);
-			}
-			if( item.price ){
-				me.total = parseFloat(me.total) + parseInt(item.quantity,10)*parseFloat(item.price);
-			}
-			
-		});
-		me.shippingCost = me.shipping();
-		me.taxCost = parseFloat(me.total)*me.taxRate;
-		me.finalTotal = me.shippingCost + me.taxCost + me.total;
-	};
-
-	me.shipping = function(){
-		if( parseInt(me.quantity,10)===0 )
-			return 0;
-		var shipping =	parseFloat(me.shippingFlatRate) +
-						parseFloat(me.shippingTotalRate)*parseFloat(me.total) +
-						parseFloat(me.shippingQuantityRate)*parseInt(me.quantity,10),
-			next;
-		
-		me.each(function(nextItem){ 		
-			if( nextItem.shipping ){
-				if( typeof nextItem.shipping == 'function' ){
-					shipping += parseFloat(nextItem.shipping());
-				} else {
-					shipping += parseFloat(nextItem.shipping);
-				}
-			}
-		});
-
-		return shipping;
-	}
-
-	me.initialize = function() {
-		simpleCart.initializeView();
-		simpleCart.load();
-		simpleCart.update();
-	};
-
-}
-
-/********************************************************************************************************
- *			Cart Item Object
- ********************************************************************************************************/
-
-function CartItem() {
-	while( simpleCart.items["c" + simpleCart.nextId] )	
-		simpleCart.nextId++;
-		
-	this.id = "c" + simpleCart.nextId;
-}
-	CartItem.prototype.set = function ( field , value ){
-		field = field.toLowerCase();
-		if( typeof( this[field] ) !== "function" && field !== "id" ){
-			if( field == "quantity" ){
-				value = value.replace( /[^(\d|\.)]*/gi , "" );
-				value = value.replace(/,*/gi, "");
-				value = parseInt(value,10);
-			} else if( field == "price"){
-				value = value.replace( /[^(\d|\.)]*/gi, "");
-				value = value.replace(/,*/gi , "");
-				value = parseFloat( value );
-			}
-			if( typeof(value) == "number" && isNaN( value ) ){
-				error( "Improperly formatted input.");
-			} else {
-				if( value.match(/\~|\=/) ){
-					error("Special character ~ or = not allowed: " + value);
-				}
-				value = value.replace(/\~|\=/g, "");
-				this[field] = value;
-				this.checkQuantityAndPrice();
-			}
-		} else {
-			error( "Cannot change " + field + ", this is a reserved field.");
-		}
-		simpleCart.update();
-	};
-
-	CartItem.prototype.increment = function(){
-		this.quantity = parseInt(this.quantity,10) + 1;
-		simpleCart.update();
-	};
-
-	CartItem.prototype.decrement = function(){
-		if( parseInt(this.quantity,10) < 2 ){
-			this.remove();
-		} else {
-			this.quantity = parseInt(this.quantity,10) - 1;
-			simpleCart.update();
-		}
-	};
-
-	CartItem.prototype.print = function () {
-		var returnString = '',
-			field;
-		simpleCart.each(this ,function(item,x,name){ 	
-			returnString+= escape(name) + "=" + escape(item) + "||";
-		});
-		return returnString.substring(0,returnString.length-2);
-	};
-
-
-	CartItem.prototype.checkQuantityAndPrice = function() {
-
-		if( !this.quantity || this.quantity == null || this.quantity == 'undefined'){ 
-			this.quantity = 1;
-			error('No quantity for item.');
-		} else {
-			this.quantity = ("" + this.quantity).replace(/,*/gi, "" );
-			this.quantity = parseInt( ("" + this.quantity).replace( /[^(\d|\.)]*/gi, "") , 10);
-			if( isNaN(this.quantity) ){
-				error('Quantity is not a number.');
-				this.quantity = 1;
-			}
-		}
-
-		if( !this.price || this.price == null || this.price == 'undefined'){
-			this.price=0.00;
-			error('No price for item or price not properly formatted.');
-		} else {
-			this.price = ("" + this.price).replace(/,*/gi, "" );
-			this.price = parseFloat( ("" + this.price).replace( /[^(\d|\.)]*/gi, "") );
-			if( isNaN(this.price) ){
-				error('Price is not a number.');
-				this.price = 0.00;
-			}
-		}
-	};
-
-
-	CartItem.prototype.parseValuesFromArray = function( array ) {
-		if( array && array.length && array.length > 0) {
-			for(var x=0, xlen=array.length; x<xlen;x++ ){
-
-				/* ensure the pair does not have key delimeters */
-				array[x] = array[x].replace(/\|\|/g, "| |");
-				array[x] = array[x].replace(/\+\+/g, "+ +");
-				if( array[x].match(/\~/) ){
-					error("Special character ~ not allowed: " + array[x]);
-				}
-				array[x] = array[x].replace(/\~/g, "");
-				
-
-				/* split the pair and save the unescaped values to the item */
-				var value = array[x].split('=');
-				if( value.length>1 ){
-					if( value.length>2 ){
-						for(var j=2, jlen=value.length;j<jlen;j++){
-							value[1] = value[1] + "=" + value[j];
-						}
-					}
-					this[ unescape(value[0]).toLowerCase() ] = unescape(value[1]);
-				}
-			}
-			return true;
-		} else {
-			return false;
-		}
-	};
-
-	CartItem.prototype.remove = function() {
-		simpleCart.remove(this.id);
-		simpleCart.update();
-	};
-
-
-
-/********************************************************************************************************
- *			Shelf Object for managing items on shelf that can be added to cart
- ********************************************************************************************************/
-
-function Shelf(){
-	this.items = {};
-}
-	Shelf.prototype.readPage = function () {
-		this.items = {};
-		var newItems = getElementsByClassName( "simpleCart_shelfItem" ),
-			newItem;
-			me = this;
-		
-		for( var x = 0, xlen = newItems.length; x<xlen; x++){
-			newItem = new ShelfItem();
-			me.checkChildren( newItems[x] , newItem );
-			me.items[newItem.id] = newItem;
-		}
-	};
-
-	Shelf.prototype.checkChildren = function ( item , newItem) {
-		if( !item.childNodes )
-			return;
-		for(var x=0;item.childNodes[x];x++){
-
-			var node = item.childNodes[x];
-			if( node.className && node.className.match(/item_[^ ]+/) ){
-
-				var data = /item_[^ ]+/.exec(node.className)[0].split("_");
-
-				if( data[1] == "add" || data[1] == "Add" ){
-					var tempArray = [];
-					tempArray.push( node );
-					var addFunction = simpleCart.Shelf.addToCart(newItem.id);
-					simpleCart.addEventToArray( tempArray , addFunction , "click");
-					node.id = newItem.id;
-				} else {
-					newItem[data[1]]  = node;
-				}
-			}
-			if( node.childNodes[0] ){
-				this.checkChildren( node , newItem );
-			}
-		}
-	};
-
-	Shelf.prototype.empty = function () {
-		this.items = {};
-	};
-
-
-	Shelf.prototype.addToCart = function ( id ) {
-		return function(){
-			if( simpleCart.Shelf.items[id]){
-				simpleCart.Shelf.items[id].addToCart();
-			} else {
-				error( "Shelf item with id of " + id + " does not exist.");
-			}
-		};
-	};
-
-
-/********************************************************************************************************
- *			Shelf Item Object
- ********************************************************************************************************/
-
-
-function ShelfItem(){
-	this.id = "s" + simpleCart.nextId++;
-}
-	ShelfItem.prototype.remove = function () {
-		simpleCart.Shelf.items[this.id] = null;
-	};
-
-
-	ShelfItem.prototype.addToCart = function () {
-		var outStrings = [],
-			valueString,
-			field;
-			
-		for( field in this ){
-			if( typeof( this[field] ) !== "function" && field !== "id" ){
-				valueString = "";
-
-				switch(field){
-					case "price":
-						if( this[field].value ){
-							valueString = this[field].value;
-						} else if( this[field].innerHTML ) {
-							valueString = this[field].innerHTML;
-						}
-						/* remove all characters from price except digits and a period */
-						valueString = valueString.replace( /[^(\d|\.)]*/gi , "" );
-						valueString = valueString.replace( /,*/ , "" );
-						break;
-					case "image":
-						valueString = this[field].src;
-						break;
-					default:
-						if( this[field].value ){
-							valueString = this[field].value;
-						} else if( this[field].innerHTML ) {
-							valueString = this[field].innerHTML;
-						} else if( this[field].src ){
-							valueString = this[field].src;
-						} else {
-							valueString = this[field];
-						}
-						break;
-				}
-				outStrings.push( field + "=" + valueString );
-			}
-		}
-
-		simpleCart.add( outStrings );
-	};
-
-
-
-/********************************************************************************************************
- * Thanks to Peter-Paul Koch for these cookie functions (http://www.quirksmode.org/js/cookies.html)
- ********************************************************************************************************/
-function createCookie(name,value,days) {
-	if (days) {
-		var date = new Date();
-		date.setTime(date.getTime()+(days*24*60*60*1000));
-		var expires = "; expires="+date.toGMTString();
-	}
-	else var expires = "";
-	value = value.replace(/\=/g, '~');
-	document.cookie = name + "=" + escape(value) + expires + "; path=/";
-}
-
-function readCookie(name) {
-	var nameEQ = name + "=";
-	var ca = document.cookie.split(';');
-	for(var i=0;i < ca.length;i++) {
-		var c = ca[i];
-		while (c.charAt(0)==' ') c = c.substring(1,c.length);
-		if (c.indexOf(nameEQ) === 0){
-			var value = unescape(c.substring(nameEQ.length, c.length));
-			return value.replace(/\~/g, '=');
-		} 
-	}
-	return null;
-}
-
-function eraseCookie(name) {
-	createCookie(name,"",-1);
+//=====================================================================||
+//               NOP Design JavaScript Shopping Cart                   ||
+//                                                                     ||
+// For more information on SmartSystems, or how NOPDesign can help you ||
+// Please visit us on the WWW at http://www.nopdesign.com              ||
+//                                                                     ||
+// Javascript portions of this shopping cart software are available as ||
+// freeware from NOP Design.  You must keep this comment unchanged in  ||
+// your code.  For more information contact FreeCart@NopDesign.com.    ||
+//                                                                     ||
+// JavaScript Shop Module, V.4.4.0                                     ||
+//=====================================================================||
+
+//---------------------------------------------------------------------||
+//                       Global Options                                ||
+//                      ----------------                               ||
+// Shopping Cart Options, you can modify these options to change the   ||
+// the way the cart functions.                                         ||
+//                                                                     ||
+// Language Packs                                                      ||
+// ==============                                                      ||
+// You may include any language pack before nopcart.js in your HTML    ||
+// pages to change the language.  Simply include a language pack with  ||
+// a script src BEFORE the <SCRIPT SRC="nopcart.js">... line.          ||
+//  For example: <SCRIPT SRC="language-en.js"></SCRIPT>                ||
+//                                                                     ||
+// Options For Everyone:                                               ||
+// =====================                                               ||
+// * MonetarySymbol: string, the symbol which represents dollars/euro, ||
+//   in your locale.                                                   ||
+// * DisplayNotice: true/false, controls whether the user is provided  ||
+//   with a popup letting them know their product is added to the cart ||
+// * DisplayShippingColumn: true/false, controls whether the managecart||
+//   and checkout pages display shipping cost column.                  ||
+// * DisplayShippingRow: true/false, controls whether the managecart   ||
+//   and checkout pages display shipping cost total row.               ||
+// * DisplayTaxRow: true/false, controls whether the managecart        ||
+//   and checkout pages display tax cost total row.                    ||
+// * TaxRate: number, your area's current tax rate, ie: if your tax    ||
+//   rate was 7.5%, you would set TaxRate = 0.075                      ||
+// * TaxByRegion: true/false, when set to true, the user is prompted   ||
+//   with TaxablePrompt to determine if they should be charged tax.    ||
+//   In the USA, this is useful to charge tax to those people who live ||
+//   in a particular state, but no one else.                           ||
+// * TaxPrompt: string, popup message if user has not selected either  ||
+//   taxable or nontaxable when TaxByRegion is set to true.            ||
+// * TaxablePrompt: string, the message the user is prompted with to   ||
+//   select if they are taxable.  If TaxByRegion is set to false, this ||
+//   has no effect. Example: 'Arizona Residents'                       ||
+// * NonTaxablePrompt: string, same as above, but the choice for non-  ||
+//   taxable people.  Example: 'Other States'                          ||
+// * MinimumOrder: number, the minium dollar amount that must be       ||
+//   purchased before a user is allowed to checkout.  Set to 0.00      ||
+//   to disable.                                                       ||
+// * MinimumOrderPrompt: string, Message to prompt users with when     ||
+//   they have not met the minimum order amount.                       ||
+//                                                                     ||
+// Payment Processor Options:                                          ||
+// ==========================                                          ||
+// * PaymentProcessor: string, the two digit payment processor code    ||
+//   for support payment processor gateways.  Setting this field to    ||
+//   anything other than an empty string will override your OutputItem ||
+//   settings -- so please be careful when receiving any form data.    ||
+//   Support payment processor gateways are:                           ||
+//    * Authorize.net (an)                                             ||
+//    * Worldpay      (wp)                                             ||
+//    * LinkPoint     (lp)
+//                                                                     ||
+// Options For Programmers:                                            ||
+// ========================                                            ||
+// * OutputItem<..>: string, the name of the pair value passed at      ||
+//   checkouttime.  Change these only if you are connecting to a CGI   ||
+//   script and need other field names, or are using a secure service  ||
+//   that requires specific field names.                               ||
+// * AppendItemNumToOutput: true/false, if set to true, the number of  ||
+//   each ordered item will be appended to the output string.  For     ||
+//   example if OutputItemId is 'ID_' and this is set to true, the     ||
+//   output field name will be 'ID_1', 'ID_2' ... for each item.       ||
+// * HiddenFieldsToCheckout: true/false, if set to true, hidden fields ||
+//   for the cart items will be passed TO the checkout page, from the  ||
+//   ManageCart page.  This is set to true for CGI/PHP/Script based    ||
+//   checkout pages, but should be left false if you are using an      ||
+//   HTML/Javascript Checkout Page. Hidden fields will ALWAYS be       ||
+//   passed FROM the checkout page to the Checkout CGI/PHP/ASP/Script  ||
+//---------------------------------------------------------------------||
+
+//Options for Everyone:
+MonetarySymbol        = 'đ';
+DisplayNotice         = true;
+DisplayShippingColumn = false;
+DisplayShippingRow    = false;
+DisplayTaxRow         = false;
+TaxRate               = 0.00;
+TaxByRegion           = false;
+TaxPrompt             = 'For tax purposes, please select if you are an Arizona resident before continuing';
+TaxablePrompt         = 'Arizona Residents';
+NonTaxablePrompt      = 'Other States';
+MinimumOrder          = 0.00;
+MinimumOrderPrompt    = 'Your order is below our minimum order, please order more before checking out.';
+
+//Payment Processor Options:
+PaymentProcessor      = '';
+
+//Options for Programmers:
+OutputItemId          = 'ID_';
+OutputItemQuantity    = 'QUANTITY_';
+OutputItemPrice       = 'PRICE_';
+OutputItemName        = 'NAME_';
+OutputItemShipping    = 'SHIPPING_';
+OutputItemAddtlInfo   = 'ADDTLINFO_';
+OutputOrderSubtotal   = 'SUBTOTAL';
+OutputOrderShipping   = 'SHIPPING';
+OutputOrderTax        = 'TAX';
+OutputOrderTotal      = 'TOTAL';
+AppendItemNumToOutput = true;
+HiddenFieldsToCheckout = false;
+
+
+//=====================================================================||
+//---------------------------------------------------------------------||
+//    YOU DO NOT NEED TO MAKE ANY MODIFICATIONS BELOW THIS LINE        ||
+//---------------------------------------------------------------------||
+//=====================================================================||
+
+
+//---------------------------------------------------------------------||
+//                      Language Strings                               ||
+//                     ------------------                              ||
+// These strings will not be used unless you have not included a       ||
+// language pack already.  You should NOT modify these, but instead    ||
+// modify the strings in language-**.js where ** is the language pack  ||
+// you are using.                                                      ||
+//---------------------------------------------------------------------||
+if ( !bLanguageDefined ) {
+   strSorry  = "I'm Sorry, your cart is full, please proceed to checkout.";
+   strAdded  = " added to your shopping cart.";
+   strRemove = "Click 'Ok' to remove this product from your shopping cart.";
+   strILabel = "Product ID";
+   strDLabel = "Product Name/Description";
+   strQLabel = "Quantity";
+   strPLabel = "Price";
+   strSLabel = "Shipping";
+   strRLabel = "Remove From Cart";
+   strRButton= "Remove";
+   strSUB    = "SUBTOTAL";
+   strSHIP   = "SHIPPING";
+   strTAX    = "TAX";
+   strTOT    = "TOTAL";
+   strErrQty = "Invalid Quantity.";
+   strNewQty = 'Please enter new quantity:';
+   bLanguageDefined = true;
 }
 
 
-//*************************************************************************************************
-/*
-	Developed by Robert Nyman, http://www.robertnyman.com
-	Code/licensing: http://code.google.com/p/getelementsbyclassname/
-*/
-var getElementsByClassName = function (className, tag, elm){
-	if (document.getElementsByClassName) {
-		getElementsByClassName = function (className, tag, elm) {
-			elm = elm || document;
-			var elements = elm.getElementsByClassName(className),
-				nodeName = (tag)? new RegExp("\\b" + tag + "\\b", "i") : null,
-				returnElements = [],
-				current;
-			for(var i=0, il=elements.length; i<il; i+=1){
-				current = elements[i];
-				if(!nodeName || nodeName.test(current.nodeName)) {
-					returnElements.push(current);
-				}
-			}
-			return returnElements;
-		};
-	}
-	else if (document.evaluate) {
-		getElementsByClassName = function (className, tag, elm) {
-			tag = tag || "*";
-			elm = elm || document;
-			var classes = className.split(" "),
-				classesToCheck = "",
-				xhtmlNamespace = "http://www.w3.org/1999/xhtml",
-				namespaceResolver = (document.documentElement.namespaceURI === xhtmlNamespace)? xhtmlNamespace : null,
-				returnElements = [],
-				elements,
-				node;
-			for(var j=0, jl=classes.length; j<jl; j+=1){
-				classesToCheck += "[contains(concat(' ', @class, ' '), ' " + classes[j] + " ')]";
-			}
-			try {
-				elements = document.evaluate(".//" + tag + classesToCheck, elm, namespaceResolver, 0, null);
-			}
-			catch (e) {
-				elements = document.evaluate(".//" + tag + classesToCheck, elm, null, 0, null);
-			}
-			while ((node = elements.iterateNext())) {
-				returnElements.push(node);
-			}
-			return returnElements;
-		};
-	}
-	else {
-		getElementsByClassName = function (className, tag, elm) {
-			tag = tag || "*";
-			elm = elm || document;
-			var classes = className.split(" "),
-				classesToCheck = [],
-				elements = (tag === "*" && elm.all)? elm.all : elm.getElementsByTagName(tag),
-				current,
-				returnElements = [],
-				match;
-			for(var k=0, kl=classes.length; k<kl; k+=1){
-				classesToCheck.push(new RegExp("(^|\\s)" + classes[k] + "(\\s|$)"));
-			}
-			for(var l=0, ll=elements.length; l<ll; l+=1){
-				current = elements[l];
-				match = false;
-				for(var m=0, ml=classesToCheck.length; m<ml; m+=1){
-					match = classesToCheck[m].test(current.className);
-					if (!match) {
-						break;
-					}
-				}
-				if (match) {
-					returnElements.push(current);
-				}
-			}
-			return returnElements;
-		};
-	}
-	return getElementsByClassName(className, tag, elm);
-};
+//---------------------------------------------------------------------||
+// FUNCTION:    CKquantity                                             ||
+// PARAMETERS:  Quantity to                                            ||
+// RETURNS:     Quantity as a number, and possible alert               ||
+// PURPOSE:     Make sure quantity is represented as a number          ||
+//---------------------------------------------------------------------||
+function CKquantity(checkString) {
+   var strNewQuantity = "";
 
+   for ( i = 0; i < checkString.length; i++ ) {
+      ch = checkString.substring(i, i+1);
+      if ( (ch >= "0" && ch <= "9") || (ch == '.') )
+         strNewQuantity += ch;
+   }
 
-/********************************************************************************************************
- *	Helpers
- ********************************************************************************************************/
+   if ( strNewQuantity.length < 1 )
+      strNewQuantity = "1";
 
-
-String.prototype.reverse=function(){return this.split("").reverse().join("");};
-Number.prototype.withCommas=function(){var x=6,y=parseFloat(this).toFixed(2).toString().reverse();while(x<y.length){y=y.substring(0,x)+","+y.substring(x);x+=4;}return y.reverse();};
-Number.prototype.toCurrency=function(){return(arguments[0]?arguments[0]:"$")+this.withCommas();};
-
-
-/********************************************************************************************************
- * error management
- ********************************************************************************************************/
-
-function error( message ){
-	try{
-		console.log( message );
-	}catch(err){
-	//	alert( message );
-	}
+   return(strNewQuantity);
 }
 
 
-var simpleCart = new Cart();
+//---------------------------------------------------------------------||
+// FUNCTION:    AddToCart                                              ||
+// PARAMETERS:  Form Object                                            ||
+// RETURNS:     Cookie to user's browser, with prompt                  ||
+// PURPOSE:     Adds a product to the user's shopping cart             ||
+//---------------------------------------------------------------------||
+function AddToCart(thisForm) {
+   var iNumberOrdered = 0;
+   var bAlreadyInCart = false;
+   var notice = "";
+   iNumberOrdered = GetCookie("NumberOrdered");
 
-if( typeof jQuery !== 'undefined' ) $(document).ready(function(){simpleCart.initialize();});
-else if( typeof Prototype !== 'undefined') Event.observe( window, 'load', function(){simpleCart.initialize();});
-else window.onload = simpleCart.initialize;
+   if ( iNumberOrdered == null )
+      iNumberOrdered = 0;
+
+   if ( thisForm.ID_NUM == null )
+      strID_NUM    = "";
+   else
+      strID_NUM    = thisForm.ID_NUM.value;
+
+   if ( thisForm.QUANTITY == null )
+      strQUANTITY  = "1";
+   else
+      strQUANTITY  = thisForm.QUANTITY.value;
+
+   if ( thisForm.PRICE == null )
+      strPRICE     = "0.00";
+   else
+      strPRICE     = thisForm.PRICE.value;
+
+   if ( thisForm.NAME == null )
+      strNAME      = "";
+   else
+      strNAME      = thisForm.NAME.value;
+
+   if ( thisForm.SHIPPING == null )
+      strSHIPPING  = "0.00";
+   else
+      strSHIPPING  = thisForm.SHIPPING.value;
+
+   if ( thisForm.ADDITIONALINFO == null ) {
+      strADDTLINFO = "";
+   } else {
+      strADDTLINFO = thisForm.ADDITIONALINFO[thisForm.ADDITIONALINFO.selectedIndex].value;
+   }
+   if ( thisForm.ADDITIONALINFO2 != null ) {
+      strADDTLINFO += "; " + thisForm.ADDITIONALINFO2[thisForm.ADDITIONALINFO2.selectedIndex].value;
+   }
+   if ( thisForm.ADDITIONALINFO3 != null ) {
+      strADDTLINFO += "; " + thisForm.ADDITIONALINFO3[thisForm.ADDITIONALINFO3.selectedIndex].value;
+   }
+   if ( thisForm.ADDITIONALINFO4 != null ) {
+      strADDTLINFO += "; " + thisForm.ADDITIONALINFO4[thisForm.ADDITIONALINFO4.selectedIndex].value;
+   }
+
+   //Is this product already in the cart?  If so, increment quantity instead of adding another.
+   for ( i = 1; i <= iNumberOrdered; i++ ) {
+      NewOrder = "Order." + i;
+      database = "";
+      database = GetCookie(NewOrder);
+
+      Token0 = database.indexOf("|", 0);
+      Token1 = database.indexOf("|", Token0+1);
+      Token2 = database.indexOf("|", Token1+1);
+      Token3 = database.indexOf("|", Token2+1);
+      Token4 = database.indexOf("|", Token3+1);
+
+      fields = new Array;
+      fields[0] = database.substring( 0, Token0 );
+      fields[1] = database.substring( Token0+1, Token1 );
+      fields[2] = database.substring( Token1+1, Token2 );
+      fields[3] = database.substring( Token2+1, Token3 );
+      fields[4] = database.substring( Token3+1, Token4 );
+      fields[5] = database.substring( Token4+1, database.length );
+
+      if ( fields[0] == strID_NUM &&
+           fields[2] == strPRICE  &&
+           fields[3] == strNAME   &&
+           fields[5] == strADDTLINFO
+         ) {
+         bAlreadyInCart = true;
+         dbUpdatedOrder = strID_NUM    + "|" +
+                          (parseInt(strQUANTITY)+parseInt(fields[1]))  + "|" +
+                          strPRICE     + "|" +
+                          strNAME      + "|" +
+                          strSHIPPING  + "|" +
+                          strADDTLINFO;
+         strNewOrder = "Order." + i;
+         DeleteCookie(strNewOrder, "/");
+         SetCookie(strNewOrder, dbUpdatedOrder, null, "/");
+         notice = strQUANTITY + " " + strNAME + strAdded;
+         break;
+      }
+   }
+
+
+   if ( !bAlreadyInCart ) {
+      iNumberOrdered++;
+
+      if ( iNumberOrdered > 12 )
+         alert( strSorry );
+      else {
+         dbUpdatedOrder = strID_NUM    + "|" + 
+                          strQUANTITY  + "|" +
+                          strPRICE     + "|" +
+                          strNAME      + "|" +
+                          strSHIPPING  + "|" +
+                          strADDTLINFO;
+
+         strNewOrder = "Order." + iNumberOrdered;
+         SetCookie(strNewOrder, dbUpdatedOrder, null, "/");
+         SetCookie("NumberOrdered", iNumberOrdered, null, "/");
+         notice = strQUANTITY + " " + strNAME + strAdded;
+      }
+   }
+
+   if ( DisplayNotice )
+      alert(notice);
+}
+
+
+//---------------------------------------------------------------------||
+// FUNCTION:    getCookieVal                                           ||
+// PARAMETERS:  offset                                                 ||
+// RETURNS:     URL unescaped Cookie Value                             ||
+// PURPOSE:     Get a specific value from a cookie                     ||
+//---------------------------------------------------------------------||
+function getCookieVal (offset) {
+   var endstr = document.cookie.indexOf (";", offset);
+
+   if ( endstr == -1 )
+      endstr = document.cookie.length;
+   return(unescape(document.cookie.substring(offset, endstr)));
+}
+
+
+//---------------------------------------------------------------------||
+// FUNCTION:    FixCookieDate                                          ||
+// PARAMETERS:  date                                                   ||
+// RETURNS:     date                                                   ||
+// PURPOSE:     Fixes cookie date, stores back in date                 ||
+//---------------------------------------------------------------------||
+function FixCookieDate (date) {
+   var base = new Date(0);
+   var skew = base.getTime();
+
+   date.setTime (date.getTime() - skew);
+}
+
+
+//---------------------------------------------------------------------||
+// FUNCTION:    GetCookie                                              ||
+// PARAMETERS:  Name                                                   ||
+// RETURNS:     Value in Cookie                                        ||
+// PURPOSE:     Retrieves cookie from users browser                    ||
+//---------------------------------------------------------------------||
+function GetCookie (name) {
+   var arg = name + "=";
+   var alen = arg.length;
+   var clen = document.cookie.length;
+   var i = 0;
+
+   while ( i < clen ) {
+      var j = i + alen;
+      if ( document.cookie.substring(i, j) == arg ) return(getCookieVal (j));
+      i = document.cookie.indexOf(" ", i) + 1;
+      if ( i == 0 ) break;
+   }
+
+   return(null);
+}
+
+
+//---------------------------------------------------------------------||
+// FUNCTION:    SetCookie                                              ||
+// PARAMETERS:  name, value, expiration date, path, domain, security   ||
+// RETURNS:     Null                                                   ||
+// PURPOSE:     Stores a cookie in the users browser                   ||
+//---------------------------------------------------------------------||
+function SetCookie (name,value,expires,path,domain,secure) {
+   document.cookie = name + "=" + escape (value) +
+                     ((expires) ? "; expires=" + expires.toGMTString() : "") +
+                     ((path) ? "; path=" + path : "") +
+                     ((domain) ? "; domain=" + domain : "") +
+                     ((secure) ? "; secure" : "");
+}
+
+
+//---------------------------------------------------------------------||
+// FUNCTION:    DeleteCookie                                           ||
+// PARAMETERS:  Cookie name, path, domain                              ||
+// RETURNS:     null                                                   ||
+// PURPOSE:     Removes a cookie from users browser.                   ||
+//---------------------------------------------------------------------||
+function DeleteCookie (name,path,domain) {
+   if ( GetCookie(name) ) {
+      document.cookie = name + "=" +
+                        ((path) ? "; path=" + path : "") +
+                        ((domain) ? "; domain=" + domain : "") +
+                        "; expires=Thu, 01-Jan-70 00:00:01 GMT";
+   }
+}
+
+
+//---------------------------------------------------------------------||
+// FUNCTION:    MoneyFormat                                            ||
+// PARAMETERS:  Number to be formatted                                 ||
+// RETURNS:     Formatted Number                                       ||
+// PURPOSE:     Reformats Dollar Amount to #.## format                 ||
+//---------------------------------------------------------------------||
+function moneyFormat(input) {
+   var dollars = Math.floor(input);
+   var tmp = new String(input);
+
+   for ( var decimalAt = 0; decimalAt < tmp.length; decimalAt++ ) {
+      if ( tmp.charAt(decimalAt)=="." )
+         break;
+   }
+
+   var cents  = "" + Math.round(input * 100);
+   cents = cents.substring(cents.length-2, cents.length)
+           dollars += ((tmp.charAt(decimalAt+2)=="9")&&(cents=="00"))? 1 : 0;
+
+   if ( cents == "0" )
+      cents = "00";
+
+   return(dollars);
+}
+
+
+//---------------------------------------------------------------------||
+// FUNCTION:    RemoveFromCart                                         ||
+// PARAMETERS:  Order Number to Remove                                 ||
+// RETURNS:     Null                                                   ||
+// PURPOSE:     Removes an item from a users shopping cart             ||
+//---------------------------------------------------------------------||
+function RemoveFromCart(RemOrder) {
+   if ( confirm( strRemove ) ) {
+      NumberOrdered = GetCookie("NumberOrdered");
+      for ( i=RemOrder; i < NumberOrdered; i++ ) {
+         NewOrder1 = "Order." + (i+1);
+         NewOrder2 = "Order." + (i);
+         database = GetCookie(NewOrder1);
+         SetCookie (NewOrder2, database, null, "/");
+      }
+      NewOrder = "Order." + NumberOrdered;
+      SetCookie ("NumberOrdered", NumberOrdered-1, null, "/");
+      DeleteCookie(NewOrder, "/");
+      location.href=location.href;
+   }
+}
+
+
+//---------------------------------------------------------------------||
+// FUNCTION:    ChangeQuantity                                         ||
+// PARAMETERS:  Order Number to Change Quantity                        ||
+// RETURNS:     Null                                                   ||
+// PURPOSE:     Changes quantity of an item in the shopping cart       ||
+//---------------------------------------------------------------------||
+function ChangeQuantity(OrderItem,NewQuantity) {
+   if ( isNaN(NewQuantity) ) {
+      alert( strErrQty );
+   } else {
+      NewOrder = "Order." + OrderItem;
+      database = "";
+      database = GetCookie(NewOrder);
+
+      Token0 = database.indexOf("|", 0);
+      Token1 = database.indexOf("|", Token0+1);
+      Token2 = database.indexOf("|", Token1+1);
+      Token3 = database.indexOf("|", Token2+1);
+      Token4 = database.indexOf("|", Token3+1);
+
+      fields = new Array;
+      fields[0] = database.substring( 0, Token0 );
+      fields[1] = database.substring( Token0+1, Token1 );
+      fields[2] = database.substring( Token1+1, Token2 );
+      fields[3] = database.substring( Token2+1, Token3 );
+      fields[4] = database.substring( Token3+1, Token4 );
+      fields[5] = database.substring( Token4+1, database.length );
+
+      dbUpdatedOrder = fields[0] + "|" +
+                       NewQuantity + "|" +
+                       fields[2] + "|" +
+                       fields[3] + "|" +
+                       fields[4] + "|" +
+                       fields[5];
+      strNewOrder = "Order." + OrderItem;
+      DeleteCookie(strNewOrder, "/");
+      SetCookie(strNewOrder, dbUpdatedOrder, null, "/");
+      location.href=location.href;      
+   }
+}
+
+
+//---------------------------------------------------------------------||
+// FUNCTION:    GetFromCart                                            ||
+// PARAMETERS:  Null                                                   ||
+// RETURNS:     Product Table Written to Document                      ||
+// PURPOSE:     Draws current cart product table on HTML page          ||
+//              **DEPRECATED FUNCTION, USE ManageCart or Checkout**    ||
+//---------------------------------------------------------------------||
+function GetFromCart( fShipping ) {
+   ManageCart( );
+}
+
+
+//---------------------------------------------------------------------||
+// FUNCTION:    RadioChecked                                           ||
+// PARAMETERS:  Radio button to check                                  ||
+// RETURNS:     True if a radio has been checked                       ||
+// PURPOSE:     Form fillin validation                                 ||
+//---------------------------------------------------------------------||
+function RadioChecked( radiobutton ) {
+   var bChecked = false;
+   var rlen = radiobutton.length;
+   for ( i=0; i < rlen; i++ ) {
+      if ( radiobutton[i].checked )
+         bChecked = true;
+   }    
+   return bChecked;
+} 
+
+
+//---------------------------------------------------------------------||
+// FUNCTION:    QueryString                                            ||
+// PARAMETERS:  Key to read                                            ||
+// RETURNS:     value of key                                           ||
+// PURPOSE:     Read data passed in via GET mode                       ||
+//---------------------------------------------------------------------||
+QueryString.keys = new Array();
+QueryString.values = new Array();
+function QueryString(key) {
+   var value = null;
+   for (var i=0;i<QueryString.keys.length;i++) {
+      if (QueryString.keys[i]==key) {
+         value = QueryString.values[i];
+         break;
+      }
+   }
+   return value;
+} 
+
+//---------------------------------------------------------------------||
+// FUNCTION:    QueryString_Parse                                      ||
+// PARAMETERS:  (URL string)                                           ||
+// RETURNS:     null                                                   ||
+// PURPOSE:     Parses query string data, must be called before Q.S.   ||
+//---------------------------------------------------------------------||
+function QueryString_Parse() {
+   var query = window.location.search.substring(1);
+   var pairs = query.split("&"); for (var i=0;i<pairs.length;i++) {
+      var pos = pairs[i].indexOf('=');
+      if (pos >= 0) {
+         var argname = pairs[i].substring(0,pos);
+         var value = pairs[i].substring(pos+1);
+         QueryString.keys[QueryString.keys.length] = argname;
+         QueryString.values[QueryString.values.length] = value;
+      }
+   }
+}
+
+
+//---------------------------------------------------------------------||
+// FUNCTION:    ManageCart                                             ||
+// PARAMETERS:  Null                                                   ||
+// RETURNS:     Product Table Written to Document                      ||
+// PURPOSE:     Draws current cart product table on HTML page          ||
+//---------------------------------------------------------------------||
+function ManageCart( ) {
+   var iNumberOrdered = 0;    //Number of products ordered
+   var fTotal         = 0;    //Total cost of order
+   var fTax           = 0;    //Tax amount
+   var fShipping      = 0;    //Shipping amount
+   var strTotal       = "";   //Total cost formatted as money
+   var strTax         = "";   //Total tax formatted as money
+   var strShipping    = "";   //Total shipping formatted as money
+   var strOutput      = "";   //String to be written to page
+   var bDisplay       = true; //Whether to write string to the page (here for programmers)
+
+   iNumberOrdered = GetCookie("NumberOrdered");
+   if ( iNumberOrdered == null )
+      iNumberOrdered = 0;
+
+   if ( bDisplay )
+      strOutput = "<TABLE CLASS=\"nopcart\"><TR>" +
+                  "<TD CLASS=\"nopheader\"><B>"+strILabel+"</B></TD>" +
+                  "<TD CLASS=\"nopheader\"><B>"+strDLabel+"</B></TD>" +
+                  "<TD CLASS=\"nopheader\"><B>"+strQLabel+"</B></TD>" +
+                  "<TD CLASS=\"nopheader\"><B>"+strPLabel+"</B></TD>" +
+                  (DisplayShippingColumn?"<TD CLASS=\"nopheader\"><B>"+strSLabel+"</B></TD>":"") +
+                  "<TD CLASS=\"nopheader\"><B>"+strRLabel+"</B></TD></TR>";
+
+   if ( iNumberOrdered == 0 ) {
+      strOutput += "<TR><TD COLSPAN=6 CLASS=\"nopentry\"><CENTER><BR><B>Giỏ hàng trống</B><BR><BR></CENTER></TD></TR>";
+   }
+
+   for ( i = 1; i <= iNumberOrdered; i++ ) {
+      NewOrder = "Order." + i;
+      database = "";
+      database = GetCookie(NewOrder);
+
+      Token0 = database.indexOf("|", 0);
+      Token1 = database.indexOf("|", Token0+1);
+      Token2 = database.indexOf("|", Token1+1);
+      Token3 = database.indexOf("|", Token2+1);
+      Token4 = database.indexOf("|", Token3+1);
+
+      fields = new Array;
+      fields[0] = database.substring( 0, Token0 );                 // Product ID
+      fields[1] = database.substring( Token0+1, Token1 );          // Quantity
+      fields[2] = database.substring( Token1+1, Token2 );          // Price
+      fields[3] = database.substring( Token2+1, Token3 );          // Product Name/Description
+      fields[4] = database.substring( Token3+1, Token4 );          // Shipping Cost
+      fields[5] = database.substring( Token4+1, database.length ); //Additional Information
+
+      fTotal     += (parseInt(fields[1]) * parseFloat(fields[2]) );
+      fShipping  += (parseInt(fields[1]) * parseFloat(fields[4]) );
+      fTax        = (fTotal * TaxRate);
+      strTotal    = moneyFormat(fTotal);
+      strTax      = moneyFormat(fTax);
+      strShipping = moneyFormat(fShipping);
+
+      if ( bDisplay ) {
+         strOutput += "<TR><TD CLASS=\"nopentry\">"  + fields[0] + "</TD>";
+
+         if ( fields[5] == "" )
+            strOutput += "<TD CLASS=\"nopentry\">"  + fields[3] + "</TD>";
+         else
+            strOutput += "<TD CLASS=\"nopentry\">"  + fields[3] + " - <I>"+ fields[5] + "</I></TD>";
+
+         strOutput += "<TD CLASS=\"nopentry\"><INPUT TYPE=TEXT NAME=Q SIZE=2 VALUE=\"" + fields[1] + "\" onChange=\"ChangeQuantity("+i+", this.value);\"></TD>";
+         strOutput += "<TD CLASS=\"nopentry\">"+ moneyFormat(fields[2]) + MonetarySymbol + "/sp</TD>";
+
+         if ( DisplayShippingColumn ) {
+            if ( parseFloat(fields[4]) > 0 )
+               strOutput += "<TD CLASS=\"nopentry\">"+ moneyFormat(fields[4]) + MonetarySymbol + "/sp</TD>";
+            else
+               strOutput += "<TD CLASS=\"nopentry\">N/A</TD>";
+         }
+
+         strOutput += "<TD CLASS=\"nopentry\" ALIGN=CENTER><input type=button value=\" "+strRButton+" \" onClick=\"RemoveFromCart("+i+")\" class=\"nopbutton\"></TD></TR>";
+      }
+
+      if ( AppendItemNumToOutput ) {
+         strFooter = i;
+      } else {
+         strFooter = "";
+      }
+      if ( HiddenFieldsToCheckout ) {
+         strOutput += "<input type=hidden name=\"" + OutputItemId        + strFooter + "\" value=\"" + fields[0] + "\">";
+         strOutput += "<input type=hidden name=\"" + OutputItemQuantity  + strFooter + "\" value=\"" + fields[1] + "\">";
+         strOutput += "<input type=hidden name=\"" + OutputItemPrice     + strFooter + "\" value=\"" + fields[2] + "\">";
+         strOutput += "<input type=hidden name=\"" + OutputItemName      + strFooter + "\" value=\"" + fields[3] + "\">";
+         strOutput += "<input type=hidden name=\"" + OutputItemShipping  + strFooter + "\" value=\"" + fields[4] + "\">";
+         strOutput += "<input type=hidden name=\"" + OutputItemAddtlInfo + strFooter + "\" value=\"" + fields[5] + "\">";
+      }
+
+   }
+
+   if ( bDisplay ) {
+      strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>" + strTotal + MonetarySymbol + "</B></TD>";
+      strOutput += "</TR>";
+
+      if ( DisplayShippingRow ) {
+         strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=4><B>"+strSHIP+"</B></TD>";
+         strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>" + strShipping + MonetarySymbol + "</B></TD>";
+         strOutput += "</TR>";
+      }
+
+      if ( DisplayTaxRow || TaxByRegion ) {
+         if ( TaxByRegion ) {
+            strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=4><B>"+strTAX+"</B></TD>";
+            strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>";
+            strOutput += "<input type=radio name=\""+OutputOrderTax+"\" value=\"" + strTax + "\">";
+            strOutput += TaxablePrompt + ": " + strTax + MonetarySymbol;
+            strOutput += "<BR><input type=radio name=\""+OutputOrderTax+"\" value=\"0.00\">";
+            strOutput += NonTaxablePrompt + ": " + "0.00" + MonetarySymbol;
+            strOutput += "</B></TD>";
+            strOutput += "</TR>";
+         } else {
+            strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=4><B>"+strTAX+"</B></TD>";
+            strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>" + strTax + MonetarySymbol + "</B></TD>";
+            strOutput += "</TR>";
+         }
+      }
+
+      if ( !TaxByRegion ) {
+         strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=4><B>"+strTOT+"</B></TD>";
+         strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>" + moneyFormat((fTotal + fShipping + fTax)) + MonetarySymbol + "</B></TD>";
+         strOutput += "</TR>";
+      }
+      strOutput += "</TABLE>";
+
+      if ( HiddenFieldsToCheckout ) {
+         strOutput += "<input type=hidden name=\""+OutputOrderSubtotal+"\" value=\""+ strTotal + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\""+OutputOrderShipping+"\" value=\""+ strShipping + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\""+OutputOrderTax+"\"      value=\""+ strTax + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\""+OutputOrderTotal+"\"    value=\""+ moneyFormat((fTotal + fShipping + fTax)) + MonetarySymbol + "\">";
+      }
+   }
+   g_TotalCost = (fTotal + fShipping + fTax);
+
+   document.write(strOutput);
+   document.close();
+}
+
+//---------------------------------------------------------------------||
+// FUNCTION:    ValidateCart                                           ||
+// PARAMETERS:  Form to validate                                       ||
+// RETURNS:     true/false                                             ||
+// PURPOSE:     Validates the managecart form                          ||
+//---------------------------------------------------------------------||
+var g_TotalCost = 0;
+function ValidateCart( theForm ) {
+   if ( TaxByRegion ) {
+      if ( !RadioChecked(eval("theForm."+OutputOrderTax)) ) {
+         alert( TaxPrompt );
+         return false;
+      }
+   }
+
+   if ( MinimumOrder >= 0.01 ) {
+      if ( g_TotalCost < MinimumOrder ) {
+         alert( MinimumOrderPrompt );
+         return false;
+      }
+   }
+
+   return true;
+}
+
+//---------------------------------------------------------------------||
+// FUNCTION:    CheckoutCart                                           ||
+// PARAMETERS:  Null                                                   ||
+// RETURNS:     Product Table Written to Document                      ||
+// PURPOSE:     Draws current cart product table on HTML page for      ||
+//              checkout.                                              ||
+//---------------------------------------------------------------------||
+function CheckoutCart( ) {
+   var iNumberOrdered = 0;    //Number of products ordered
+   var fTotal         = 0;    //Total cost of order
+   var fTax           = 0;    //Tax amount
+   var fShipping      = 0;    //Shipping amount
+   var strTotal       = "";   //Total cost formatted as money
+   var strTax         = "";   //Total tax formatted as money
+   var strShipping    = "";   //Total shipping formatted as money
+   var strOutput      = "";   //String to be written to page
+   var bDisplay       = true; //Whether to write string to the page (here for programmers)
+   var strPP          = "";   //Payment Processor Description Field
+
+   iNumberOrdered = GetCookie("NumberOrdered");
+   if ( iNumberOrdered == null )
+      iNumberOrdered = 0;
+
+   if ( TaxByRegion ) {
+      QueryString_Parse();
+      fTax = parseFloat( QueryString( OutputOrderTax ) );
+      strTax = moneyFormat(fTax);
+   }
+
+   if ( bDisplay )
+      strOutput = "<TABLE CLASS=\"nopcart\"><TR>" +
+                  "<TD CLASS=\"nopheader\"><B>"+strILabel+"</B></TD>" +
+                  "<TD CLASS=\"nopheader\"><B>"+strDLabel+"</B></TD>" +
+                  "<TD CLASS=\"nopheader\"><B>"+strQLabel+"</B></TD>" +
+                  "<TD CLASS=\"nopheader\"><B>"+strPLabel+"</B></TD>" +
+                  (DisplayShippingColumn?"<TD CLASS=\"nopheader\"><B>"+strSLabel+"</B></TD>":"") +
+                  "</TR>";
+
+   for ( i = 1; i <= iNumberOrdered; i++ ) {
+      NewOrder = "Order." + i;
+      database = "";
+      database = GetCookie(NewOrder);
+
+      Token0 = database.indexOf("|", 0);
+      Token1 = database.indexOf("|", Token0+1);
+      Token2 = database.indexOf("|", Token1+1);
+      Token3 = database.indexOf("|", Token2+1);
+      Token4 = database.indexOf("|", Token3+1);
+
+      fields = new Array;
+      fields[0] = database.substring( 0, Token0 );                 // Product ID
+      fields[1] = database.substring( Token0+1, Token1 );          // Quantity
+      fields[2] = database.substring( Token1+1, Token2 );          // Price
+      fields[3] = database.substring( Token2+1, Token3 );          // Product Name/Description
+      fields[4] = database.substring( Token3+1, Token4 );          // Shipping Cost
+      fields[5] = database.substring( Token4+1, database.length ); //Additional Information
+
+      fTotal     += (parseInt(fields[1]) * parseFloat(fields[2]) );
+      fShipping  += (parseInt(fields[1]) * parseFloat(fields[4]) );
+      if ( !TaxByRegion ) fTax = (fTotal * TaxRate);
+      strTotal    = moneyFormat(fTotal);
+      if ( !TaxByRegion ) strTax = moneyFormat(fTax);
+      strShipping = moneyFormat(fShipping);
+
+      if ( bDisplay ) {
+         strOutput += "<TR><TD CLASS=\"nopentry\">"  + fields[0] + "</TD>";
+
+         if ( fields[5] == "" )
+            strOutput += "<TD CLASS=\"nopentry\">"  + fields[3] + "</TD>";
+         else
+            strOutput += "<TD CLASS=\"nopentry\">"  + fields[3] + " - <I>"+ fields[5] + "</I></TD>";
+
+         strOutput += "<TD CLASS=\"nopentry\">" + fields[1] + "</TD>";
+         strOutput += "<TD CLASS=\"nopentry\">"+ moneyFormat(fields[2]) + MonetarySymbol + "/sp</TD>";
+
+         if ( DisplayShippingColumn ) {
+            if ( parseFloat(fields[4]) > 0 )
+               strOutput += "<TD CLASS=\"nopentry\">"+ moneyFormat(fields[4]) + MonetarySymbol + "/sp</TD>";
+            else
+               strOutput += "<TD CLASS=\"nopentry\">N/A</TD>";
+         }
+
+         strOutput += "</TR>";
+      }
+
+      if ( AppendItemNumToOutput ) {
+         strFooter = i;
+      } else {
+         strFooter = "";
+      }
+      if ( PaymentProcessor != '' ) {
+         //Process description field for payment processors instead of hidden values.
+         //Format Description of product as:
+         // ID, Name, Qty X
+         strPP += fields[0] + ", " + fields[3];
+         if ( fields[5] != "" )
+            strPP += " - " + fields[5];
+         strPP += ", Qty. " + fields[1] + "\n";
+      } else {
+         strOutput += "<input type=hidden name=\"" + OutputItemId        + strFooter + "\" value=\"" + fields[0] + "\">";
+         strOutput += "<input type=hidden name=\"" + OutputItemQuantity  + strFooter + "\" value=\"" + fields[1] + "\">";
+         strOutput += "<input type=hidden name=\"" + OutputItemPrice     + strFooter + "\" value=\"" + fields[2] + "\">";
+         strOutput += "<input type=hidden name=\"" + OutputItemName      + strFooter + "\" value=\"" + fields[3] + "\">";
+         strOutput += "<input type=hidden name=\"" + OutputItemShipping  + strFooter + "\" value=\"" + fields[4] + "\">";
+         strOutput += "<input type=hidden name=\"" + OutputItemAddtlInfo + strFooter + "\" value=\"" + fields[5] + "\">";
+      } 
+
+   }
+
+   if ( bDisplay ) {
+      strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=LEFT><B>" + strTotal + MonetarySymbol + "</B></TD>";
+      strOutput += "</TR>";
+
+      if ( DisplayShippingRow ) {
+         strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=3><B>"+strSHIP+"</B></TD>";
+         strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + strShipping + MonetarySymbol + "</B></TD>";
+         strOutput += "</TR>";
+      }
+
+      if ( DisplayTaxRow || TaxByRegion ) {
+         strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=3><B>"+strTAX+"</B></TD>";
+         strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + strTax + MonetarySymbol + "</B></TD>";
+         strOutput += "</TR>";
+      }
+
+      strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=3><B>"+strTOT+"</B></TD>";
+      strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + moneyFormat((fTotal + fShipping + fTax)) + MonetarySymbol + "</B></TD>";
+      strOutput += "</TR>";
+
+      strOutput += "</TABLE>";
+
+      
+      if ( PaymentProcessor == 'an') {
+         //Process this for Authorize.net WebConnect
+         strOutput += "<input type=hidden name=\"x_Version\" value=\"3.0\">";
+         strOutput += "<input type=hidden name=\"x_Show_Form\" value=\"PAYMENT_FORM\">";
+         strOutput += "<input type=hidden name=\"x_Description\" value=\""+ strPP + "\">";
+         strOutput += "<input type=hidden name=\"x_Amount\" value=\""+ moneyFormat((fTotal + fShipping + fTax)) + "\">";
+      } else if ( PaymentProcessor == 'wp') {
+         //Process this for WorldPay
+         strOutput += "<input type=hidden name=\"desc\" value=\""+ strPP + "\">";
+         strOutput += "<input type=hidden name=\"amount\" value=\""+ moneyFormat((fTotal + fShipping + fTax)) + "\">";
+      } else if ( PaymentProcessor == 'lp') {
+         //Process this for LinkPoint         
+         strOutput += "<input type=hidden name=\"mode\" value=\"fullpay\">";
+         strOutput += "<input type=hidden name=\"chargetotal\" value=\""+ moneyFormat((fTotal + fShipping + fTax)) + "\">";
+         strOutput += "<input type=hidden name=\"tax\" value=\""+ strTax + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\"subtotal\" value=\""+ strTotal + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\"shipping\" value=\""+ strShipping + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\"desc\" value=\""+ strPP + "\">";
+      } else {
+         strOutput += "<input type=hidden name=\""+OutputOrderSubtotal+"\" value=\""+ strTotal + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\""+OutputOrderShipping+"\" value=\""+ strShipping + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\""+OutputOrderTax+"\"      value=\""+ strTax + MonetarySymbol + "\">";
+         strOutput += "<input type=hidden name=\""+OutputOrderTotal+"\"    value=\""+ moneyFormat((fTotal + fShipping + fTax)) + MonetarySymbol + "\">";
+      }
+   }
+
+   document.write(strOutput);
+   document.close();
+}
+
+//=====================================================================||
+//               END NOP Design SmartPost Shopping Cart                ||
+//=====================================================================||
+
