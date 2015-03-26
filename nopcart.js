@@ -640,12 +640,14 @@ function ManageCart( ) {
 
       if ( DisplayShippingRow ) {
          strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=4><B>"+strSHIP+"</B></TD>";
+         strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>" + strShipping + MonetarySymbol + "</B></TD>";
          strOutput += "</TR>";
       }
 
       if ( DisplayTaxRow || TaxByRegion ) {
          if ( TaxByRegion ) {
             strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=4><B>"+strTAX+"</B></TD>";
+            strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>";
             strOutput += "<input type=radio name=\""+OutputOrderTax+"\" value=\"" + strTax + "\">";
             strOutput += TaxablePrompt + ": " + strTax + MonetarySymbol;
             strOutput += "<BR><input type=radio name=\""+OutputOrderTax+"\" value=\"0.00\">";
@@ -654,12 +656,14 @@ function ManageCart( ) {
             strOutput += "</TR>";
          } else {
             strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=4><B>"+strTAX+"</B></TD>";
+            strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>" + strTax + MonetarySymbol + "</B></TD>";
             strOutput += "</TR>";
          }
       }
 
       if ( !TaxByRegion ) {
          strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=4><B>"+strTOT+"</B></TD>";
+         strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>" + moneyFormat((fTotal + fShipping + fTax)) + MonetarySymbol + "</B></TD>";
          strOutput += "</TR>";
       }
       strOutput += "</TABLE>";
@@ -812,20 +816,20 @@ function CheckoutCart( ) {
    }
 
    if ( bDisplay ) {
-      strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=LEFT><B>" + strTotal + MonetarySymbol + "</B></TD>";
-      strOutput += "</TR>";
-
       if ( DisplayShippingRow ) {
          strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=3><B>"+strSHIP+"</B></TD>";
+         strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + strShipping + MonetarySymbol + "</B></TD>";
          strOutput += "</TR>";
       }
 
       if ( DisplayTaxRow || TaxByRegion ) {
          strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=3><B>"+strTAX+"</B></TD>";
+         strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + strTax + MonetarySymbol + "</B></TD>";
          strOutput += "</TR>";
       }
 
       strOutput += "<TR><TD CLASS=\"noptotal\" COLSPAN=3><B>"+strTOT+"</B></TD>";
+      strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2 ALIGN=RIGHT><B>" + moneyFormat((fTotal + fShipping + fTax)) + MonetarySymbol + "</B></TD>";
       strOutput += "</TR>";
 
       strOutput += "</TABLE>";
