@@ -635,7 +635,6 @@ function ManageCart( ) {
    }
 
    if ( bDisplay ) {
-      strOutput += "<TD CLASS=\"noptotal\" COLSPAN=2><B>" + strTotal + MonetarySymbol + "</B></TD>";
       strOutput += "</TR>";
 
       if ( DisplayShippingRow ) {
